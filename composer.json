@@ -1,0 +1,41 @@
+{
+  "name": "ayup-creative/laravel-dsql",
+  "description": "Advanced DSL search parser for Laravel with virtual columns, operators, relationship traversal and export-ready queries.",
+  "type": "library",
+  "license": "MIT",
+  "autoload": {
+    "psr-4": {
+      "AyupCreative\\AdvancedSearch\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "AyupCreative\\AdvancedSearch\\Tests\\": "tests/"
+    }
+  },
+  "require": {
+    "php": "^8.2",
+    "illuminate/database": "^11.0|^12.0|^13.0",
+    "illuminate/support": "^11.0|^12.0|^13.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^10|^11",
+    "laravel/pint": "^1.29",
+    "phpstan/phpstan": "^2.1",
+    "orchestra/testbench": "^10.0|^11.0"
+  },
+  "extra": {
+    "laravel": {
+      "providers": [
+        "AyupCreative\\AdvancedSearch\\AdvancedSearchServiceProvider"
+      ],
+      "aliases": {
+        "AdvancedSearch": "AyupCreative\\AdvancedSearch\\Facade\\AdvancedSearch"
+      }
+    }
+  },
+  "scripts": {
+    "test": "vendor/bin/phpunit",
+    "pint": "vendor/bin/pint"
+  }
+}
