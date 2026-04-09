@@ -1,6 +1,6 @@
 # Laravel Advanced Search DSL
 
-[![PHP Tests](https://github.com/Ayup-Creative/laravel-dsql/actions/workflows/phpunit.yml/badge.svg)](https://github.com/ayup-creative/laravel-dsql/actions/workflows/phpunit.yml)
+[![CI/CD](https://github.com/Ayup-Creative/laravel-dsql/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/ayup-creative/laravel-dsql/actions/workflows/ci-cd.yml)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/ayup-creative/laravel-dsql.svg?style=flat-square)](https://packagist.org/packages/ayup-creative/laravel-dsql)
 [![Total Downloads](https://img.shields.io/packagist/dt/ayup-creative/laravel-dsql.svg?style=flat-square)](https://packagist.org/packages/ayup-creative/laravel-dsql)
 [![License](https://img.shields.io/packagist/l/ayup-creative/laravel-dsql.svg?style=flat-square)](https://packagist.org/packages/ayup-creative/laravel-dsql)
@@ -242,11 +242,49 @@ The system automatically detects relationships in the `SELECT` clause, eager-loa
 - `sort(column, direction)`: `sort(created_at, desc)`
 - `limit(number)`: `limit(10)`
 
-## 🛠️ Developer Guide
+## Developer Guide
 
 For detailed information on how to extend the system with custom operators or advanced resolvers, please see the [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md).
 
-## ✅ Testing
+## 🛠️ Development
+
+This project uses [pre-commit](https://pre-commit.com/) to maintain code quality and ensure consistent commit messages.
+
+### Pre-commit Hooks
+
+We use `pre-commit` to automatically run:
+- **Pint**: Ensures PHP code style follows Laravel standards.
+- **PHPUnit**: Runs the test suite to prevent regressions.
+- **Conventional Commits**: Validates commit messages.
+
+To set up `pre-commit` locally:
+
+1. [Install pre-commit](https://pre-commit.com/#install) on your machine.
+2. Run `pre-commit install` in the project root to set up the git hook scripts.
+3. Run `pre-commit install --hook-type commit-msg` to enable commit message linting.
+
+### Conventional Commits
+
+We follow the [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification for all commit messages. This allows us to automate our release process and generate consistent changelogs.
+
+Common types:
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation only changes
+- `style`: Changes that do not affect the meaning of the code (white-space, formatting, etc)
+- `refactor`: A code change that neither fixes a bug nor adds a feature
+- `perf`: A code change that improves performance
+- `test`: Adding missing tests or correcting existing tests
+- `chore`: Changes to the build process or auxiliary tools and libraries
+
+### CI/CD & Automated Releases
+
+Our GitHub Actions workflow handles the following sequentially:
+1. **PHPUnit tests**: Runs tests across multiple PHP versions (8.2, 8.3, 8.4, 8.5).
+2. **Commit/PR lint**: Validates that pull request titles follow conventional commit standards.
+3. **Release Please**: Automatically creates GitHub releases, tags, and updates the changelog when a PR is merged into the `main` branch.
+
+## Testing
 
 Run the test suite with PHPUnit:
 
@@ -272,6 +310,6 @@ Pint is also available for code formatting. Run `pint` to fix any issues.
 composer pint
 ```
 
-## 📜 License
+## License
 
 MIT License.
