@@ -36,7 +36,15 @@ trait Searchable
             // Prefer explicit expression from selection metadata; otherwise, resolve from registry if the column is virtual
             /** @var AdvancedSearch $search */
             $search = app(AdvancedSearch::class);
-            $resolvedExpr = $selection['expression'] ?? $search->columns()->resolveExpression($column, static::class) ?? "[$column]";
+            $resolvedExpr = $selection['expression'] ?? $search->columns()->resolveExpression($column, static::class);
+
+            if ($resolvedExpr === null && ! str_contains($column, '.')) {
+                // Not a virtual column and no relationship path; attribute already null → avoid recursion
+                return null;
+            }
+
+            $resolvedExpr = $resolvedExpr ?? "[$column]";
+
             try {
                 // Fast-path: handle simple SQL CONCAT(arg1, 'literal', argN) without full parsing
                 if (preg_match('/^CONCAT\s*\((.*)\)$/i', $resolvedExpr, $m)) {

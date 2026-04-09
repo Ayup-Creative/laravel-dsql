@@ -339,7 +339,13 @@ class AdvancedSearch
 
                 // Resolve expression if it refers to a local alias
                 $resolvedForMetadata = $expression;
+                $visited = [];
                 while ($resolvedForMetadata instanceof ColumnNode && isset($localContext[$resolvedForMetadata->name])) {
+                    if (in_array($resolvedForMetadata->name, $visited)) {
+                        break;
+                    }
+                    $visited[] = $resolvedForMetadata->name;
+
                     $resolvedForMetadata = $localContext[$resolvedForMetadata->name];
                 }
 

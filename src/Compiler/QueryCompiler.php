@@ -379,11 +379,17 @@ class QueryCompiler
         };
     }
 
-    protected function compileExpression(Node $node, string $modelClass, array &$bindings, array $context = [], ?Builder $query = null): string
+    protected function compileExpression(Node $node, string $modelClass, array &$bindings, array $context = [], ?Builder $query = null, array $visited = []): string
     {
         if ($node instanceof ColumnNode) {
             if (isset($context[$node->name])) {
-                return $this->compileExpression($context[$node->name], $modelClass, $bindings, $context, $query);
+                if (in_array($node->name, $visited)) {
+                    return $node->name;
+                }
+
+                $visited[] = $node->name;
+
+                return $this->compileExpression($context[$node->name], $modelClass, $bindings, $context, $query, $visited);
             }
 
             $resolved = $this->columnRegistry->resolveExpression($node->name, $modelClass);
@@ -395,7 +401,7 @@ class QueryCompiler
                     $ast = $parser->parse();
 
                     if ($ast instanceof QueryNode && $ast->criteria) {
-                        return $this->compileExpression($ast->criteria, $modelClass, $bindings, $context, $query);
+                        return $this->compileExpression($ast->criteria, $modelClass, $bindings, $context, $query, $visited);
                     }
                 } catch (\Throwable $e) {
                     // Fallback to raw SQL if parsing fails
@@ -446,14 +452,14 @@ class QueryCompiler
         }
 
         if ($node instanceof ArithmeticNode) {
-            $left = $this->compileExpression($node->left, $modelClass, $bindings, $context, $query);
-            $right = $this->compileExpression($node->right, $modelClass, $bindings, $context, $query);
+            $left = $this->compileExpression($node->left, $modelClass, $bindings, $context, $query, $visited);
+            $right = $this->compileExpression($node->right, $modelClass, $bindings, $context, $query, $visited);
 
             return "($left {$node->operator} $right)";
         }
 
         if ($node instanceof CastNode) {
-            return $this->compileExpression($node->expression, $modelClass, $bindings, $context, $query);
+            return $this->compileExpression($node->expression, $modelClass, $bindings, $context, $query, $visited);
         }
 
         if ($node instanceof AggregateNode) {
