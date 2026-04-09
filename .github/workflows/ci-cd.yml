@@ -1,4 +1,4 @@
-name: PHP Tests
+name: CI/CD
 
 on:
   push:
@@ -6,14 +6,18 @@ on:
   pull_request:
     branches: [ main, dev ]
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   tests:
+    name: PHPUnit tests
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.head_commit.message, '--no-change') }}
     strategy:
       matrix:
         php: [8.2, 8.3, 8.4, 8.5]
-
     steps:
       - uses: actions/checkout@v4
 
@@ -31,3 +35,24 @@ jobs:
         env:
           XDEBUG_MODE: coverage
         run: vendor/bin/phpunit --colors=never --coverage-text
+
+  lint:
+    name: Commit/PR lint
+    needs: tests
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release-please:
+    name: Release Please
+    needs: tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: google-github-actions/release-please-action@v4
+        with:
+          release-type: php
+          token: ${{ secrets.GITHUB_TOKEN }}
