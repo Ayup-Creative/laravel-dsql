@@ -14,8 +14,7 @@ class ModelInputTest extends TestCase
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
     }
 
-    /** @test */
-    public function it_can_apply_using_model_fqn()
+    public function test_it_can_apply_using_model_fqn()
     {
         Product::create(['name' => 'Widget', 'price' => 100, 'status' => 'active']);
         Product::create(['name' => 'Gadget', 'price' => 200, 'status' => 'active']);
@@ -30,8 +29,7 @@ class ModelInputTest extends TestCase
         $this->assertEquals('Gadget', $results->first()->name);
     }
 
-    /** @test */
-    public function it_can_apply_using_model_instance()
+    public function test_it_can_apply_using_model_instance()
     {
         Product::create(['name' => 'Widget', 'price' => 100, 'status' => 'active']);
         Product::create(['name' => 'Gadget', 'price' => 200, 'status' => 'active']);

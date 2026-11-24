@@ -135,7 +135,7 @@ class PrattParser
             throw new ParserException("Expected limit value at position {$limitToken->position}");
         }
         $limit = $limitToken->value;
-        if (! is_numeric($limit)) {
+        if (! ctype_digit((string) $limit)) {
             throw new ParserException('Limit must be numeric');
         }
         $this->consume(TokenType::T_RPAREN, "Expected ')' after limit");
@@ -170,6 +170,12 @@ class PrattParser
                 $this->consume(TokenType::T_RBRACKET, "Expected ']'");
 
                 return new ColumnNode($column);
+
+            case TokenType::T_MINUS:
+            case TokenType::T_PLUS:
+                $operand = $this->parseExpression(60);
+
+                return $token->type === TokenType::T_MINUS ? new ArithmeticNode('*', new LiteralNode(-1), $operand) : $operand;
 
             case TokenType::T_NUMBER:
                 $val = $token->value;
@@ -239,6 +245,13 @@ class PrattParser
     protected function parseValue(): mixed
     {
         $token = $this->advance();
+
+        if (in_array($token->type, [TokenType::T_MINUS, TokenType::T_PLUS], true)) {
+            $number = $this->consume(TokenType::T_NUMBER, 'Expected a number after a sign')->value;
+            $value = str_contains($number, '.') ? (float) $number : (int) $number;
+
+            return ['type' => 'scalar', 'value' => $token->type === TokenType::T_MINUS ? -$value : $value];
+        }
 
         if ($token->type === TokenType::T_LBRACKET) {
             // Column-to-column comparison or just a bracketed value?
