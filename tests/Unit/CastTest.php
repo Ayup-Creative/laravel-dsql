@@ -58,7 +58,7 @@ class CastTest extends TestCase
 
         $sql = $query->toSql();
         // Quote styles vary by database
-        $this->assertStringContainsString('(price * ?) as tax_amount', strtolower($sql));
+        $this->assertStringContainsString('(price * ?) as "tax_amount"', strtolower($sql));
         $this->assertEquals([0.3, 100], $query->getBindings());
     }
 }

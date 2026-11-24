@@ -330,6 +330,18 @@ When a dotted path is detected in the `SELECT` clause, the system will:
 2.  **Ensure Keys**: Automatically select the necessary foreign keys (for `BelongsTo`) or local primary keys (for `HasOne`/`HasMany`) on the parent model to ensure Laravel can resolve the relationship data.
 3.  **Data Retrieval**: Use `getSelectionValue()` from the `Searchable` trait to fetch the value from the loaded relationship using `data_get()`. This supports both singular and plural relationships (collections).
 
+#### SQL predicates, scalar values, and validation
+
+`WHERE` uses SQL predicates independently of the PHP evaluation used for relationship selections. A dotted selection may use a `NULL` placeholder and eager loading; that placeholder is never reused as a predicate or sort value.
+
+- Direct relationship filters use `whereHas`, including plural relationships, without duplicating parent rows. Registered custom resolvers take precedence, and terminal virtual fields resolve against their related model.
+- Arithmetic, column comparisons, and sorting compile actual SQL values. Singular relationships use scoped correlated subqueries. Plural relationship values require `COUNT` or `EXISTS` when used as scalars.
+- Aggregate comparisons support the same comparison, list, and range operators as other SQL values. `EXISTS` yields a boolean/0-or-1 value. Equality with `null` compiles to `IS NULL`; ordered comparisons with `null` are rejected.
+- Registered expressions may contain bracketed DSQL such as `[price] * 0.8`, or trusted native SQL such as `price * 0.8` or `LOWER(name)`. Native SQL is supplied by application code and must be valid for its database driver.
+- Selection aliases resolve in predicates and sorting; formatting casts compare the underlying value. Selection aliases are quoted as single SQL identifiers, including names containing dots or reserved words.
+
+`validate()` uses the same compiler as `apply()`. Invalid fields, relationships, cycles, operand shapes, ambiguous plural scalars, and bare non-predicate expressions raise `AdvancedSearchException`. Compilation occurs on a cloned builder; rejection leaves the caller's builder unchanged. Relationship paths resolve declared Eloquent relationships or explicitly registered dynamic relationships, rather than forwarding unknown names to query methods.
+
 #### Mapping Virtual Columns to Relationships
 You can also define virtual columns that map to dotted relationship paths. This allows you to expose safe, simple names in the DSL while automatically handling relationship traversal and eager-loading.
 

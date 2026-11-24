@@ -2,15 +2,13 @@
 
 namespace AyupCreative\AdvancedSearch;
 
-use AyupCreative\AdvancedSearch\AST\AggregateNode;
-use AyupCreative\AdvancedSearch\AST\ArithmeticNode;
 use AyupCreative\AdvancedSearch\AST\CastNode;
 use AyupCreative\AdvancedSearch\AST\ColumnNode;
-use AyupCreative\AdvancedSearch\AST\ConditionNode;
-use AyupCreative\AdvancedSearch\AST\LogicalNode;
 use AyupCreative\AdvancedSearch\AST\Node;
 use AyupCreative\AdvancedSearch\AST\QueryNode;
 use AyupCreative\AdvancedSearch\Compiler\QueryCompiler;
+use AyupCreative\AdvancedSearch\Concerns\DiscoversSearchSchema;
+use AyupCreative\AdvancedSearch\Concerns\RegistersQueryModels;
 use AyupCreative\AdvancedSearch\Grammar\Lexer;
 use AyupCreative\AdvancedSearch\Grammar\PrattParser;
 use AyupCreative\AdvancedSearch\Registry\CastRegistry;
@@ -19,11 +17,12 @@ use AyupCreative\AdvancedSearch\Registry\DynamicValueRegistry;
 use AyupCreative\AdvancedSearch\Registry\OperatorRegistry;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\Relation;
-use Illuminate\Support\Facades\Schema;
 
 class AdvancedSearch
 {
+    use DiscoversSearchSchema;
+    use RegistersQueryModels;
+
     public function __construct(
         protected ColumnRegistry $columnRegistry,
         protected OperatorRegistry $operatorRegistry,
@@ -50,87 +49,13 @@ class AdvancedSearch
             $this->operatorRegistry,
             $this->dynamicValueRegistry
         );
-        $compiler->compile($query, $ast);
+        // Compile on a clone so a rejected query cannot partially change the caller's builder.
+        $compiled = clone $query;
+        $compiler->compile($compiled, $ast);
+        $query->setQuery($compiled->getQuery());
+        $query->setEagerLoads($compiled->getEagerLoads());
 
         return $query;
-    }
-
-    protected function registerModelsFromAst(?Node $node, string $modelClass): void
-    {
-        if (! $node) {
-            return;
-        }
-
-        if ($node instanceof QueryNode) {
-            foreach ($node->fields as $field) {
-                $this->registerModelsFromExpression($field['expression'], $modelClass);
-            }
-            if ($node->criteria) {
-                $this->registerModelsFromAst($node->criteria, $modelClass);
-            }
-        } elseif ($node instanceof LogicalNode) {
-            $this->registerModelsFromAst($node->left, $modelClass);
-            $this->registerModelsFromAst($node->right, $modelClass);
-        } elseif ($node instanceof ConditionNode) {
-            $this->registerModelsFromExpression($node->column, $modelClass);
-        }
-    }
-
-    protected function registerModelsFromExpression(Node $node, string $modelClass): void
-    {
-        if ($node instanceof ColumnNode) {
-            if (str_contains($node->name, '.')) {
-                $parts = explode('.', $node->name);
-                array_pop($parts);
-                $currentModelClass = $modelClass;
-
-                foreach ($parts as $part) {
-                    if (! class_exists($currentModelClass)) {
-                        break;
-                    }
-
-                    $instance = new $currentModelClass;
-                    if (method_exists($instance, $part)) {
-                        try {
-                            $relation = $instance->$part();
-                            if ($relation instanceof Relation) {
-                                $relatedModelClass = get_class($relation->getRelated());
-                                $this->columnRegistry->registerFromClass($relatedModelClass);
-                                $currentModelClass = $relatedModelClass;
-                            } else {
-                                break;
-                            }
-                        } catch (\Throwable $e) {
-                            break;
-                        }
-                    } else {
-                        break;
-                    }
-                }
-            } else {
-                $resolved = $this->columnRegistry->resolveExpression($node->name, $modelClass);
-                if ($resolved) {
-                    try {
-                        $lexer = new Lexer($resolved);
-                        $parser = new PrattParser($lexer->tokenize());
-                        $ast = $parser->parse();
-
-                        if ($ast instanceof QueryNode && $ast->criteria) {
-                            $this->registerModelsFromAst($ast->criteria, $modelClass);
-                        }
-                    } catch (\Throwable $e) {
-                        // Fallback
-                    }
-                }
-            }
-        } elseif ($node instanceof ArithmeticNode) {
-            $this->registerModelsFromExpression($node->left, $modelClass);
-            $this->registerModelsFromExpression($node->right, $modelClass);
-        } elseif ($node instanceof CastNode) {
-            $this->registerModelsFromExpression($node->expression, $modelClass);
-        } elseif ($node instanceof AggregateNode) {
-            $this->registerModelsFromExpression($node->expression, $modelClass);
-        }
     }
 
     public function validate(string $input, string|Builder|Model $model): void
@@ -188,88 +113,6 @@ class AdvancedSearch
     public function getAutocomplete(string|Builder|Model $model): array
     {
         return $this->columnRegistry->getColumnsForClass($this->resolveModelClass($model));
-    }
-
-    /**
-     * @param  class-string|Builder|Model  $model
-     * @return array<int, array{name: string, type: 'column'|'relationship', model?: string}>
-     */
-    public function getSchema(string|Builder|Model $model): array
-    {
-        $modelClass = $this->resolveModelClass($model);
-        /** @var Model $instance */
-        $instance = new $modelClass;
-        $results = [];
-
-        // 1. Database columns
-        $table = $instance->getTable();
-        $dbColumns = Schema::getColumnListing($table);
-        foreach ($dbColumns as $col) {
-            $results[$col] = [
-                'name' => $col,
-                'type' => 'column',
-            ];
-        }
-
-        // 2. Virtual columns
-        $virtual = $this->columnRegistry->getColumnsForClass($modelClass);
-        foreach ($virtual as $v) {
-            // Only add top-level names (no dots)
-            if (! str_contains($v, '.')) {
-                $results[$v] = [
-                    'name' => $v,
-                    'type' => 'column',
-                ];
-            } else {
-                // If it's a dotted path, add the root part as a possible relationship/column
-                $parts = explode('.', $v);
-                $relName = $parts[0];
-                if (! isset($results[$relName])) {
-                    $results[$relName] = [
-                        'name' => $relName,
-                        'type' => 'relationship',
-                        'model' => null,
-                    ];
-                }
-            }
-        }
-
-        // 3. Relationships (one level deep)
-        $reflection = new \ReflectionClass($modelClass);
-        $baseModelClass = Model::class;
-
-        foreach ($reflection->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
-            // Skip methods from base Model class or with parameters or static
-            if ($method->getDeclaringClass()->getName() === $baseModelClass ||
-                $method->isStatic() ||
-                $method->getNumberOfParameters() > 0) {
-                continue;
-            }
-
-            // Skip common trait methods if possible, or just try-catch
-            $name = $method->getName();
-            if (str_starts_with($name, 'get') || str_starts_with($name, 'scope')) {
-                continue;
-            }
-
-            try {
-                // We use a fresh model instance to avoid any state issues
-                $return = $method->invoke($instance);
-                if ($return instanceof Relation) {
-                    $results[$name] = [
-                        'name' => $name,
-                        'type' => 'relationship',
-                        'model' => get_class($return->getRelated()),
-                    ];
-                }
-            } catch (\Throwable $e) {
-                // Ignore methods that can't be called
-            }
-        }
-
-        ksort($results);
-
-        return array_values($results);
     }
 
     public function getBlankSyntax(string $column, ?string $operator = null): string

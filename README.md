@@ -235,6 +235,15 @@ For selection, dotted paths are supported directly in the `SELECT` clause:
 
 The system automatically detects relationships in the `SELECT` clause, eager-loads them using `$query->with()`, and ensures that necessary foreign keys (for `BelongsTo`) or primary keys (for `HasOne`/`HasMany`) are included in the SQL selection. Plural relationships (e.g., `HasMany`) are automatically resolved into arrays when accessed via `getSelectionValue()`.
 
+Relationship filters work with or without the same field in `SELECT`, including aliases:
+
+```text
+SELECT [id], [model.brand.name] AS "Brand", EXISTS([receipt]) AS "Extended"
+WHERE [Brand]:equals"Asento"
+```
+
+Filters retain Eloquent relationship scopes and soft deletes. `CAST` formats selected values in PHP; comparisons use their underlying values. Relationship values used in arithmetic, column comparisons, or sorting must be singular. Use `COUNT` or `EXISTS` for a plural relationship's scalar value.
+
 ### Boolean Logic
 `([status]:equals"active" OR [priority]:gt 5) AND [category]:in(books, electronics)`
 

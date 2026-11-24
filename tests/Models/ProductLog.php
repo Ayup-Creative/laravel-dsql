@@ -10,6 +10,6 @@ class ProductLog extends Model
 
     public function detail()
     {
-        return $this->belongsTo(ProductDetail::class);
+        return $this->belongsTo(ProductDetail::class, 'product_detail_id');
     }
 }
